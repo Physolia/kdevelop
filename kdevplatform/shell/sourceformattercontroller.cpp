@@ -320,28 +320,6 @@ KConfigGroup SourceFormatterController::globalConfig() const
     return KSharedConfig::openConfig()->group( Strings::SourceFormatter() );
 }
 
-ISourceFormatter* SourceFormatterController::findFirstFormatterForMimeType(const QMimeType& mime ) const
-{
-    Q_D(const SourceFormatterController);
-
-    static QHash<QString, ISourceFormatter*> knownFormatters;
-    const auto formatterIt = knownFormatters.constFind(mime.name());
-    if (formatterIt != knownFormatters.constEnd())
-        return *formatterIt;
-
-    auto it = std::find_if(d->sourceFormatters.constBegin(), d->sourceFormatters.constEnd(),
-                           [&](ISourceFormatter* iformatter) {
-        QSharedPointer<SourceFormatter> formatter(createFormatterForPlugin(iformatter));
-        return (formatter->supportedMimeTypes().contains(mime.name()));
-    });
-
-    ISourceFormatter* iformatter = (it != d->sourceFormatters.constEnd()) ? *it : nullptr;
-
-    // cache result in any case
-    knownFormatters.insert(mime.name(), iformatter);
-    return iformatter;
-}
-
 static void populateStyleFromConfigGroup(SourceFormatterStyle* s, const KConfigGroup& stylegrp)
 {
     s->setCaption( stylegrp.readEntry( SourceFormatterController::styleCaptionKey(), QString() ) );
@@ -379,7 +357,7 @@ ISourceFormatter* SourceFormatterController::formatterForUrl(const QUrl& url, co
 {
     Q_D(SourceFormatterController);
 
-    if (!d->enabled || !isMimeTypeSupported(mime)) {
+    if (!d->enabled) {
         return nullptr;
     }
 
@@ -387,18 +365,10 @@ ISourceFormatter* SourceFormatterController::formatterForUrl(const QUrl& url, co
 
     if( formatter.isEmpty() )
     {
-        return findFirstFormatterForMimeType( mime );
+        return nullptr;
     }
 
     return d->formatterForConfigEntry(formatter, mime.name());
-}
-
-bool SourceFormatterController::isMimeTypeSupported(const QMimeType& mime)
-{
-    if( findFirstFormatterForMimeType( mime ) ) {
-        return true;
-    }
-    return false;
 }
 
 QString SourceFormatterController::indentationMode(const QMimeType& mime)
@@ -413,9 +383,6 @@ QString SourceFormatterController::indentationMode(const QMimeType& mime)
 
 QString SourceFormatterController::addModelineForCurrentLang(QString input, const QUrl& url, const QMimeType& mime)
 {
-    if( !isMimeTypeSupported(mime) )
-        return input;
-
     QRegExp kateModelineWithNewline(QStringLiteral("\\s*\\n//\\s*kate:(.*)$"));
 
     // If there already is a modeline in the document, adapt it while formatting, even
@@ -424,7 +391,11 @@ QString SourceFormatterController::addModelineForCurrentLang(QString input, cons
             kateModelineWithNewline.indexIn( input ) == -1 )
         return input;
 
-    ISourceFormatter* fmt = formatterForUrl(url, mime);
+    const ISourceFormatter* const fmt = formatterForUrl(url, mime);
+    if (!fmt) {
+        return input;
+    }
+
     ISourceFormatter::Indentation indentation = fmt->indentation(url);
 
     if( !indentation.isValid() )
@@ -433,9 +404,6 @@ QString SourceFormatterController::addModelineForCurrentLang(QString input, cons
     QString output;
     QTextStream os(&output, QIODevice::WriteOnly);
     QTextStream is(&input, QIODevice::ReadOnly);
-
-    Q_ASSERT(fmt);
-
 
     QString modeline(QStringLiteral("// kate: ")
                    + QLatin1String("indent-mode ") + indentationMode(mime) + QLatin1String("; "));
