@@ -297,7 +297,7 @@ bool AStylePlugin::hasEditStyleWidget() const
     return true;
 }
 
-SettingsWidget* AStylePlugin::editStyleWidget(const QMimeType& mime) const
+SettingsWidgetPtr AStylePlugin::editStyleWidget(const QMimeType& mime) const
 {
     AStylePreferences::Language lang = AStylePreferences::CPP;
     if (mime.inherits(QStringLiteral("text/x-java")))
@@ -308,7 +308,7 @@ SettingsWidget* AStylePlugin::editStyleWidget(const QMimeType& mime) const
         // x-objc++src *should* inherit x-objcsrc but that is not always the case in practice
         lang = AStylePreferences::ObjC;
     }
-    return new AStylePreferences(lang);
+    return SettingsWidgetPtr{new AStylePreferences(lang)};
 }
 
 QString AStylePlugin::previewText(const SourceFormatterStyle& /*style*/, const QMimeType& mime) const
