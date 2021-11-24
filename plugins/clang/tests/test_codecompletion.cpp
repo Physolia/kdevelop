@@ -1194,8 +1194,8 @@ void TestCodeCompletion::testCompletionPriority_data()
         {"c", 2, 0, QStringLiteral("Derived class is not added to the Best Matches group")}}};
 
     QTest::newRow("primary-types")
-        << "class A{}; int main(){A a; int b; bool c = \n "
-        << CompletionPriorityItems{{1,0}, {{"a", 0, 34}, {"b", 2, 0}}};
+        << "class A{}; int main(){A a; int b; bool c; bool d = \n "
+        << CompletionPriorityItems{{1,0}, {{"a", 0, 34}, {"b", 2, 0}, {"c", 6, 0}}};
 
     QTest::newRow("reference")
         << "class A{}; class B{}; class C : public B{};"
