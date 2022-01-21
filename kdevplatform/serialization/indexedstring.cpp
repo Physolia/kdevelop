@@ -303,24 +303,24 @@ IndexedString& IndexedString::operator=(const IndexedString& rhs) noexcept
     return *this;
 }
 
-void KDevelop::swap(IndexedString& a, IndexedString& b) noexcept
+void IndexedString::swap(IndexedString& rhs) noexcept
 {
     using std::swap;
 
-    if (a.m_index == b.m_index) {
+    if (m_index == rhs.m_index) {
         return;
     }
-    swap(a.m_index, b.m_index);
+    swap(m_index, rhs.m_index);
 
-    const bool aRc = shouldDoDUChainReferenceCounting(&a);
-    const bool bRc = shouldDoDUChainReferenceCounting(&b);
+    const bool aRc = shouldDoDUChainReferenceCounting(this);
+    const bool bRc = shouldDoDUChainReferenceCounting(&rhs);
 
     if (aRc == bRc) {
         return;
     }
 
-    auto noLongerRefCountedIndex = b.m_index;
-    auto newlyRefCountedIndex = a.m_index;
+    auto noLongerRefCountedIndex = rhs.m_index;
+    auto newlyRefCountedIndex = m_index;
     if (bRc) {
         swap(noLongerRefCountedIndex, newlyRefCountedIndex);
     }

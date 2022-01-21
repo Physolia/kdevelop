@@ -167,7 +167,7 @@ public:
 
     IndexedString& operator=(const IndexedString&) noexcept;
 
-    friend KDEVPLATFORMSERIALIZATION_EXPORT void swap(IndexedString&, IndexedString&) noexcept;
+    void swap(IndexedString &rhs) noexcept;
 
     /**
      * Fast index-based comparison
@@ -234,6 +234,11 @@ public:
 private:
     uint m_index = 0;
 };
+
+inline void swap(IndexedString& lhs, IndexedString& rhs) noexcept
+{
+    lhs.swap(rhs);
+}
 
 // the following function would need to be exported in case you'd remove the inline keyword.
 inline uint qHash(const KDevelop::IndexedString& str)
