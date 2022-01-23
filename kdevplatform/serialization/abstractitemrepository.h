@@ -44,8 +44,6 @@ public:
 
     void deleteRepository();
 
-    virtual QMutex* repositoryMutex() const = 0;
-
 protected:
     mutable AbstractItemRepository* m_repository = nullptr;
 };
