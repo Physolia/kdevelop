@@ -145,7 +145,8 @@ void initInstantiationInformationRepository()
     standardInstantiationInformationIndex();
 }
 
-IndexedInstantiationInformation::IndexedInstantiationInformation() : m_index(0)
+IndexedInstantiationInformation::IndexedInstantiationInformation()
+    : m_index(0)
 {
 }
 

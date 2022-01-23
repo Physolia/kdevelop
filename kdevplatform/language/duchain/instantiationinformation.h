@@ -25,7 +25,7 @@ class KDEVPLATFORMLANGUAGE_EXPORT IndexedInstantiationInformation
     : public ReferenceCountManager
 {
 public:
-    IndexedInstantiationInformation();
+    IndexedInstantiationInformation() noexcept;
     explicit IndexedInstantiationInformation(uint index);
     IndexedInstantiationInformation(const IndexedInstantiationInformation& rhs);
     IndexedInstantiationInformation& operator=(const IndexedInstantiationInformation& rhs);
