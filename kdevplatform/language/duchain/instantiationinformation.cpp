@@ -145,23 +145,18 @@ void initInstantiationInformationRepository()
     standardInstantiationInformationIndex();
 }
 
-IndexedInstantiationInformation::IndexedInstantiationInformation()
-    : m_index(0)
+IndexedInstantiationInformation::IndexedInstantiationInformation(uint index)
+    : m_index(index)
 {
-}
-
-IndexedInstantiationInformation::IndexedInstantiationInformation(uint index) : m_index(index)
-{
-    if (m_index == standardInstantiationInformationIndex())
+    if (m_index && m_index == standardInstantiationInformationIndex())
         m_index = 0;
 
     ItemRepositoryUtils::inc(this);
 }
 
-IndexedInstantiationInformation::IndexedInstantiationInformation(const IndexedInstantiationInformation& rhs) : m_index(
-        rhs.m_index)
+IndexedInstantiationInformation::IndexedInstantiationInformation(const IndexedInstantiationInformation& rhs)
+    : IndexedInstantiationInformation(rhs.m_index)
 {
-    ItemRepositoryUtils::inc(this);
 }
 
 IndexedInstantiationInformation& IndexedInstantiationInformation::operator=(const IndexedInstantiationInformation& rhs)
