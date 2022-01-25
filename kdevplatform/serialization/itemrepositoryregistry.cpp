@@ -21,6 +21,8 @@
 #include "abstractitemrepository.h"
 #include "debug.h"
 
+#include <mutex>
+
 using namespace KDevelop;
 
 namespace {
@@ -204,6 +206,7 @@ void ItemRepositoryRegistry::registerRepository(AbstractItemRepository* reposito
     QMutexLocker lock(&d->m_mutex);
     d->m_repositories.insert(repository, manager);
     if (!d->m_path.isEmpty()) {
+        auto repoLock = std::lock_guard(*repository);
         if (!repository->open(d->m_path)) {
             d->deleteDataDirectory(d->m_path);
             qCritical() << "failed to open a repository";
@@ -257,7 +260,10 @@ void ItemRepositoryRegistry::unRegisterRepository(AbstractItemRepository* reposi
 
     QMutexLocker lock(&d->m_mutex);
     Q_ASSERT(d->m_repositories.contains(repository));
-    repository->close();
+    {
+        auto repoLock = std::lock_guard(*repository);
+        repository->close();
+    }
     d->m_repositories.remove(repository);
 }
 
@@ -360,6 +366,7 @@ void ItemRepositoryRegistry::printAllStatistics() const
     QMutexLocker lock(&d->m_mutex);
     for (auto it = d->m_repositories.constBegin(), end = d->m_repositories.constEnd(); it != end; ++it) {
         AbstractItemRepository* repository = it.key();
+        auto repoLock = std::lock_guard(*repository);
         qCDebug(SERIALIZATION) << "statistics in" << repository->repositoryName() << ":";
         qCDebug(SERIALIZATION) << repository->printStatistics();
     }
@@ -373,6 +380,7 @@ int ItemRepositoryRegistry::finalCleanup()
     int changed = false;
     for (auto it = d->m_repositories.constBegin(), end = d->m_repositories.constEnd(); it != end; ++it) {
         AbstractItemRepository* repository = it.key();
+        auto repoLock = std::lock_guard(*repository);
         int added = repository->finalCleanup();
         changed += added;
         qCDebug(SERIALIZATION) << "cleaned in" << repository->repositoryName() << ":" << added;
@@ -386,6 +394,7 @@ void ItemRepositoryRegistryPrivate::close()
     QMutexLocker lock(&m_mutex);
 
     for (auto it = m_repositories.constBegin(), end = m_repositories.constEnd(); it != end; ++it) {
+        auto repoLock = std::lock_guard(*it.key());
         it.key()->close();
     }
 
