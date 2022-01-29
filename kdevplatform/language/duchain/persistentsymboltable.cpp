@@ -149,15 +149,28 @@ struct CacheEntry
     DataHash m_hash;
 };
 
+using PersistentSymbolTableRepo = ItemRepository<PersistentSymbolTableItem, PersistentSymbolTableRequestItem>;
+
+template <>
+class ItemRepositoryFor<PersistentSymbolTableItem>
+{
+    friend struct LockedItemRepository;
+    static PersistentSymbolTableRepo& repo()
+    {
+        static QMutex mutex;
+        // Maps declaration-ids to declarations
+        //  mutable as things like findIndex are not const
+        static PersistentSymbolTableRepo repo { QStringLiteral("Persistent Declaration Table"), &mutex };
+        return repo;
+    }
+
+public:
+    static void init() { repo(); }
+};
+
 class PersistentSymbolTablePrivate
 {
 public:
-    QMutex m_mutex;
-    //Maps declaration-ids to declarations
-    using Repo = ItemRepository<PersistentSymbolTableItem, PersistentSymbolTableRequestItem>;
-    // mutable as things like findIndex are not const
-    mutable Repo m_declarations{QStringLiteral("Persistent Declaration Table"), &m_mutex};
-
     mutable QHash<IndexedQualifiedIdentifier, CacheEntry<IndexedDeclaration>> m_declarationsCache;
 
     //We cache the imports so the currently used nodes are very close in memory, which leads to much better CPU cache utilization
@@ -177,16 +190,14 @@ void PersistentSymbolTable::clearCache()
     Q_D(PersistentSymbolTable);
 
     ENSURE_CHAIN_WRITE_LOCKED
-    {
-        QMutexLocker lock(d->m_declarations.mutex());
-        d->m_importsCache.clear();
-        d->m_declarationsCache.clear();
-    }
+    d->m_importsCache.clear();
+    d->m_declarationsCache.clear();
 }
 
 PersistentSymbolTable::PersistentSymbolTable()
     : d_ptr(new PersistentSymbolTablePrivate())
 {
+    ItemRepositoryFor<PersistentSymbolTableItem>::init();
 }
 
 PersistentSymbolTable::~PersistentSymbolTable()
@@ -201,7 +212,6 @@ void PersistentSymbolTable::addDeclaration(const IndexedQualifiedIdentifier& id,
 {
     Q_D(PersistentSymbolTable);
 
-    QMutexLocker lock(d->m_declarations.mutex());
     d->addDeclaration(id, declaration);
 }
 
@@ -212,46 +222,47 @@ void PersistentSymbolTablePrivate::addDeclaration(const IndexedQualifiedIdentifi
 
     m_declarationsCache.remove(id);
 
-    PersistentSymbolTableItem item;
-    item.id = id;
-    PersistentSymbolTableRequestItem request(item);
+    LockedItemRepository::op<PersistentSymbolTableItem>([&id, &declaration](PersistentSymbolTableRepo& repo) {
+        PersistentSymbolTableItem item;
+        item.id = id;
 
-    uint index = m_declarations.findIndex(item);
+        uint index = repo.findIndex(item);
 
-    if (index) {
-        //Check whether the item is already in the mapped list, else copy the list into the new created item
-        const PersistentSymbolTableItem* oldItem = m_declarations.itemFromIndex(index);
+        if (index) {
+            // Check whether the item is already in the mapped list, else copy the list into the new created item
+            const PersistentSymbolTableItem* oldItem = repo.itemFromIndex(index);
 
-        EmbeddedTreeAlgorithms<IndexedDeclaration, IndexedDeclarationHandler> alg(
-            oldItem->declarations(), oldItem->declarationsSize(), oldItem->centralFreeItem);
+            EmbeddedTreeAlgorithms<IndexedDeclaration, IndexedDeclarationHandler> alg(
+                oldItem->declarations(), oldItem->declarationsSize(), oldItem->centralFreeItem);
 
-        if (alg.indexOf(declaration) != -1)
-            return;
+            if (alg.indexOf(declaration) != -1)
+                return;
 
-        DynamicItem<PersistentSymbolTableItem, true> editableItem = m_declarations.dynamicItemFromIndex(index);
+            DynamicItem<PersistentSymbolTableItem, true> editableItem = repo.dynamicItemFromIndex(index);
 
-        EmbeddedTreeAddItem<IndexedDeclaration, IndexedDeclarationHandler> add(
-            const_cast<IndexedDeclaration*>(editableItem->declarations()),
-            editableItem->declarationsSize(), editableItem->centralFreeItem, declaration);
+            EmbeddedTreeAddItem<IndexedDeclaration, IndexedDeclarationHandler> add(
+                const_cast<IndexedDeclaration*>(editableItem->declarations()), editableItem->declarationsSize(),
+                editableItem->centralFreeItem, declaration);
 
-        uint newSize = add.newItemCount();
-        if (newSize != editableItem->declarationsSize()) {
-            //We need to resize. Update and fill the new item, and delete the old item.
-            item.declarationsList().resize(newSize);
-            add.transferData(item.declarationsList().data(), newSize, &item.centralFreeItem);
+            uint newSize = add.newItemCount();
+            if (newSize != editableItem->declarationsSize()) {
+                // We need to resize. Update and fill the new item, and delete the old item.
+                item.declarationsList().resize(newSize);
+                add.transferData(item.declarationsList().data(), newSize, &item.centralFreeItem);
 
-            m_declarations.deleteItem(index);
-            Q_ASSERT(!m_declarations.findIndex(request));
+                repo.deleteItem(index);
+                Q_ASSERT(!repo.findIndex(item));
+            } else {
+                // We're fine, the item could be added to the existing list
+                return;
+            }
         } else {
-            //We're fine, the item could be added to the existing list
-            return;
+            item.declarationsList().append(declaration);
         }
-    } else {
-        item.declarationsList().append(declaration);
-    }
 
-    //This inserts the changed item
-    m_declarations.index(request);
+        // This inserts the changed item
+        repo.index(item);
+    });
 }
 
 void PersistentSymbolTable::removeDeclaration(const IndexedQualifiedIdentifier& id,
@@ -259,7 +270,6 @@ void PersistentSymbolTable::removeDeclaration(const IndexedQualifiedIdentifier& 
 {
     Q_D(PersistentSymbolTable);
 
-    QMutexLocker lock(d->m_declarations.mutex());
     d->removeDeclaration(id, declaration);
 }
 
@@ -271,45 +281,46 @@ void PersistentSymbolTablePrivate::removeDeclaration(const IndexedQualifiedIdent
     m_declarationsCache.remove(id);
     Q_ASSERT(!m_declarationsCache.contains(id));
 
-    PersistentSymbolTableItem item;
-    item.id = id;
-    PersistentSymbolTableRequestItem request(item);
+    LockedItemRepository::op<PersistentSymbolTableItem>([&id, &declaration](PersistentSymbolTableRepo& repo) {
+        PersistentSymbolTableItem item;
+        item.id = id;
 
-    uint index = m_declarations.findIndex(item);
+        uint index = repo.findIndex(item);
 
-    if (index) {
-        //Check whether the item is already in the mapped list, else copy the list into the new created item
-        const PersistentSymbolTableItem* oldItem = m_declarations.itemFromIndex(index);
+        if (index) {
+            // Check whether the item is already in the mapped list, else copy the list into the new created item
+            const PersistentSymbolTableItem* oldItem = repo.itemFromIndex(index);
 
-        EmbeddedTreeAlgorithms<IndexedDeclaration, IndexedDeclarationHandler> alg(
-            oldItem->declarations(), oldItem->declarationsSize(), oldItem->centralFreeItem);
+            EmbeddedTreeAlgorithms<IndexedDeclaration, IndexedDeclarationHandler> alg(
+                oldItem->declarations(), oldItem->declarationsSize(), oldItem->centralFreeItem);
 
-        if (alg.indexOf(declaration) == -1)
-            return;
+            if (alg.indexOf(declaration) == -1)
+                return;
 
-        DynamicItem<PersistentSymbolTableItem, true> editableItem = m_declarations.dynamicItemFromIndex(index);
+            DynamicItem<PersistentSymbolTableItem, true> editableItem = repo.dynamicItemFromIndex(index);
 
-        EmbeddedTreeRemoveItem<IndexedDeclaration, IndexedDeclarationHandler> remove(
-            const_cast<IndexedDeclaration*>(editableItem->declarations()),
-            editableItem->declarationsSize(), editableItem->centralFreeItem, declaration);
+            EmbeddedTreeRemoveItem<IndexedDeclaration, IndexedDeclarationHandler> remove(
+                const_cast<IndexedDeclaration*>(editableItem->declarations()), editableItem->declarationsSize(),
+                editableItem->centralFreeItem, declaration);
 
-        uint newSize = remove.newItemCount();
-        if (newSize != editableItem->declarationsSize()) {
-            //We need to resize. Update and fill the new item, and delete the old item.
-            item.declarationsList().resize(newSize);
-            remove.transferData(item.declarationsList().data(), newSize, &item.centralFreeItem);
+            uint newSize = remove.newItemCount();
+            if (newSize != editableItem->declarationsSize()) {
+                // We need to resize. Update and fill the new item, and delete the old item.
+                item.declarationsList().resize(newSize);
+                remove.transferData(item.declarationsList().data(), newSize, &item.centralFreeItem);
 
-            m_declarations.deleteItem(index);
-            Q_ASSERT(!m_declarations.findIndex(request));
-        } else {
-            //We're fine, the item could be added to the existing list
-            return;
+                repo.deleteItem(index);
+                Q_ASSERT(!repo.findIndex(item));
+            } else {
+                // We're fine, the item could be added to the existing list
+                return;
+            }
         }
-    }
 
-    //This inserts the changed item
-    if (item.declarationsSize())
-        m_declarations.index(request);
+        // This inserts the changed item
+        if (item.declarationsSize())
+            repo.index(item);
+    });
 }
 
 struct DeclarationCacheVisitor
@@ -332,7 +343,6 @@ PersistentSymbolTable::FilteredDeclarationIterator PersistentSymbolTable::filter
 {
     Q_D(const PersistentSymbolTable);
 
-    QMutexLocker lock(d->m_declarations.mutex());
     return d->filteredDeclarations(id, visibility);
 }
 
@@ -391,7 +401,6 @@ PersistentSymbolTable::Declarations PersistentSymbolTable::declarations(const In
 {
     Q_D(const PersistentSymbolTable);
 
-    QMutexLocker lock(d->m_declarations.mutex());
     return d->declarations(id);
 }
 
@@ -403,15 +412,17 @@ PersistentSymbolTablePrivate::declarations(const IndexedQualifiedIdentifier& id)
     PersistentSymbolTableItem item;
     item.id = id;
 
-    uint index = m_declarations.findIndex(item);
+    return LockedItemRepository::op<PersistentSymbolTableItem>([&item](const PersistentSymbolTableRepo& repo) {
+        uint index = repo.findIndex(item);
 
-    if (index) {
-        const PersistentSymbolTableItem* repositoryItem = m_declarations.itemFromIndex(index);
-        return PersistentSymbolTable::Declarations(repositoryItem->declarations(),
-                                                   repositoryItem->declarationsSize(), repositoryItem->centralFreeItem);
-    } else {
-        return PersistentSymbolTable::Declarations();
-    }
+        if (index) {
+            const PersistentSymbolTableItem* repositoryItem = repo.itemFromIndex(index);
+            return PersistentSymbolTable::Declarations(
+                repositoryItem->declarations(), repositoryItem->declarationsSize(), repositoryItem->centralFreeItem);
+        } else {
+            return PersistentSymbolTable::Declarations();
+        }
+    });
 }
 
 void PersistentSymbolTable::declarations(const IndexedQualifiedIdentifier& id, uint& countTarget,
@@ -419,7 +430,6 @@ void PersistentSymbolTable::declarations(const IndexedQualifiedIdentifier& id, u
 {
     Q_D(const PersistentSymbolTable);
 
-    QMutexLocker lock(d->m_declarations.mutex());
     return d->declarations(id, countTarget, declarationsTarget);
 }
 
@@ -431,16 +441,19 @@ void PersistentSymbolTablePrivate::declarations(const IndexedQualifiedIdentifier
     PersistentSymbolTableItem item;
     item.id = id;
 
-    uint index = m_declarations.findIndex(item);
+    LockedItemRepository::op<PersistentSymbolTableItem>(
+        [&item, &countTarget, &declarationsTarget](const PersistentSymbolTableRepo& repo) {
+            uint index = repo.findIndex(item);
 
-    if (index) {
-        const PersistentSymbolTableItem* repositoryItem = m_declarations.itemFromIndex(index);
-        countTarget = repositoryItem->declarationsSize();
-        declarationsTarget = repositoryItem->declarations();
-    } else {
-        countTarget = 0;
-        declarationsTarget = nullptr;
-    }
+            if (index) {
+                const PersistentSymbolTableItem* repositoryItem = repo.itemFromIndex(index);
+                countTarget = repositoryItem->declarationsSize();
+                declarationsTarget = repositoryItem->declarations();
+            } else {
+                countTarget = 0;
+                declarationsTarget = nullptr;
+            }
+        });
 }
 
 struct DebugVisitor
@@ -501,18 +514,15 @@ struct DebugVisitor
 
 void PersistentSymbolTable::dump(const QTextStream& out)
 {
-    Q_D(PersistentSymbolTable);
+    QDebug qout = fromTextStream(out);
+    DebugVisitor v(out);
 
-    {
-        QMutexLocker lock(d->m_declarations.mutex());
-
-        QDebug qout = fromTextStream(out);
-        DebugVisitor v(out);
-        d->m_declarations.visitAllItems(v);
+    LockedItemRepository::op<PersistentSymbolTableItem>([&](const PersistentSymbolTableRepo& repo) {
+        repo.visitAllItems(v);
 
         qout << "Statistics:" << endl;
-        qout << d->m_declarations.statistics() << endl;
-    }
+        qout << repo.statistics() << endl;
+    });
 }
 
 PersistentSymbolTable& PersistentSymbolTable::self()
