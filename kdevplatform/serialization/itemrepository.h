@@ -1016,8 +1016,6 @@ private:
  * to re-lock anything internally, thus is capable to work with a non-recursive mutex.
  * If desired, a recursive mutex can be used too though as needed.
  *
- * Note that the mutex will be locked internally when the repo is accessed through the AbstractItemRepository API.
- *
  * @tparam Item See ExampleItem
  * @tparam ItemRequest See ExampleReqestItem
  * @tparam fixedItemSize When this is true, all inserted items must have the same size.
@@ -1027,7 +1025,7 @@ private:
  *                                 repository that does on-disk reference counting, like IndexedString,
  *                                 IndexedIdentifier, etc.
  * @tparam mutex The mutex type to use internally. It has to be locked externally before accessing the item repository
- *               from multiple threads. Except for the store
+ *               from multiple threads.
  */
 
 template <class Item, class ItemRequest, bool markForReferenceCounting = true, typename Mutex = QMutex,
