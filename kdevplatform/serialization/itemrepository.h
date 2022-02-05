@@ -10,6 +10,8 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QMutex>
+#include <QMutexLocker>
 
 #include <KMessageBox>
 #include <KLocalizedString>
@@ -1045,7 +1047,7 @@ class ItemRepository : public AbstractItemRepository
         BucketStartOffset = sizeof(uint) * 7 + sizeof(short unsigned int) * bucketHashSize //Position in the data where the bucket array starts
     };
 
-    Q_DISABLE_COPY(ItemRepository)
+    Q_DISABLE_COPY_MOVE(ItemRepository)
 public:
     ///@param registry May be zero, then the repository will not be registered at all. Else, the repository will
     /// register itself to that registry.

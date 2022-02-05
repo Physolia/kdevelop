@@ -7,9 +7,9 @@
 #ifndef ABSTRACTITEMREPOSITORY_H
 #define ABSTRACTITEMREPOSITORY_H
 
-#include <QMutex>
-
 #include "serializationexport.h"
+
+#include <QtGlobal>
 
 class QString;
 

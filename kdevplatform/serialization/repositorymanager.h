@@ -10,6 +10,11 @@
 #include "abstractitemrepository.h"
 #include "itemrepositoryregistry.h"
 
+#include <QMutexLocker>
+
+#include <type_traits>
+#include <utility>
+
 namespace KDevelop {
 /// This class helps managing the lifetime of a global item repository, and protecting the consistency.
 /// Especially it helps doing thread-safe lazy repository-creation.

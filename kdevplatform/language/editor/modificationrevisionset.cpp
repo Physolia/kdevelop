@@ -292,7 +292,7 @@ bool ModificationRevisionSet::needsUpdate() const
 {
     QMutexLocker lock(modificationRevisionSetMutex());
 
-#ifdef DEBUG_NEEDSUPDATE
+  #ifdef DEBUG_NEEDSUPDATE
     Utils::Set set(m_index, &FileModificationSetRepositoryRepresenter::repository());
     Utils::Set::Iterator it = set.iterator();
     while (it) {
