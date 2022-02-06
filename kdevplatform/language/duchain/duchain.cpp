@@ -287,8 +287,8 @@ public:
     const EnvironmentInformationListItem* m_item;
 };
 
-/// NOTE: The following repositories are thread-safe, and m_chainsMutex should not be locked when using them,
-/// because they may trigger I/O.
+/// NOTE: The following two repositories are thread-safe, and DUChainPrivate::m_chainsMutex should not be locked when
+/// using them, because they may trigger I/O.
 
 /// Maps filenames to a list of top-contexts/environment-information.
 using EnvironmentInformationListRepo
