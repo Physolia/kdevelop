@@ -328,7 +328,6 @@ public:
 };
 
 class DUChainPrivate;
-static DUChainPrivate* duChainPrivateSelf = nullptr;
 class DUChainPrivate
 {
     class CleanupThread
@@ -373,7 +372,6 @@ public:
         m_cleanupDisabled = true;
 #endif
 
-        duChainPrivateSelf = this;
         qRegisterMetaType<DUChainBasePointer>("KDevelop::DUChainBasePointer");
         qRegisterMetaType<DUContextPointer>("KDevelop::DUContextPointer");
         qRegisterMetaType<TopDUContextPointer>("KDevelop::TopDUContextPointer");
