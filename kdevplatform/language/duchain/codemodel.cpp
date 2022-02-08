@@ -162,6 +162,7 @@ public:
     const CodeModelRepositoryItem& m_item;
 };
 
+// Maps declaration-ids to items
 using CodeModelRepo = ItemRepository<CodeModelRepositoryItem, CodeModelRequestItem>;
 template <>
 class ItemRepositoryFor<CodeModel>
@@ -170,7 +171,6 @@ class ItemRepositoryFor<CodeModel>
     static CodeModelRepo& repo()
     {
         static QMutex mutex;
-        // Maps declaration-ids to items
         static CodeModelRepo repo(QStringLiteral("Code Model"), &mutex);
         return repo;
     }
