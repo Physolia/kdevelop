@@ -149,6 +149,7 @@ struct CacheEntry
     DataHash m_hash;
 };
 
+// Maps declaration-ids to declarations
 using PersistentSymbolTableRepo = ItemRepository<PersistentSymbolTableItem, PersistentSymbolTableRequestItem>;
 
 template <>
@@ -158,8 +159,6 @@ class ItemRepositoryFor<PersistentSymbolTableItem>
     static PersistentSymbolTableRepo& repo()
     {
         static QMutex mutex;
-        // Maps declaration-ids to declarations
-        //  mutable as things like findIndex are not const
         static PersistentSymbolTableRepo repo { QStringLiteral("Persistent Declaration Table"), &mutex };
         return repo;
     }
