@@ -146,6 +146,7 @@ private:
     const QTextStream& out;
 };
 
+// Maps declaration-ids to definitions
 using DefinitionsRepo = ItemRepository<DefinitionsItem, DefinitionsRequestItem>;
 
 template <>
@@ -155,7 +156,6 @@ class ItemRepositoryFor<DefinitionsItem>
     static DefinitionsRepo& repo()
     {
         static QMutex mutex;
-        // Maps declaration-ids to definitions
         static DefinitionsRepo repo { QStringLiteral("Definition Map"), &mutex };
         return repo;
     }
