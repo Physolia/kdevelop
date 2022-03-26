@@ -222,7 +222,7 @@ void PersistentSymbolTablePrivate::addDeclaration(const IndexedQualifiedIdentifi
 
     m_declarationsCache.remove(id);
 
-    LockedItemRepository::op<PersistentSymbolTableItem>([&id, &declaration](PersistentSymbolTableRepo& repo) {
+    LockedItemRepository::write<PersistentSymbolTableItem>([&id, &declaration](PersistentSymbolTableRepo& repo) {
         PersistentSymbolTableItem item;
         item.id = id;
 
@@ -281,7 +281,7 @@ void PersistentSymbolTablePrivate::removeDeclaration(const IndexedQualifiedIdent
     m_declarationsCache.remove(id);
     Q_ASSERT(!m_declarationsCache.contains(id));
 
-    LockedItemRepository::op<PersistentSymbolTableItem>([&id, &declaration](PersistentSymbolTableRepo& repo) {
+    LockedItemRepository::write<PersistentSymbolTableItem>([&id, &declaration](PersistentSymbolTableRepo& repo) {
         PersistentSymbolTableItem item;
         item.id = id;
 
@@ -412,7 +412,7 @@ PersistentSymbolTablePrivate::declarations(const IndexedQualifiedIdentifier& id)
     PersistentSymbolTableItem item;
     item.id = id;
 
-    return LockedItemRepository::op<PersistentSymbolTableItem>([&item](const PersistentSymbolTableRepo& repo) {
+    return LockedItemRepository::read<PersistentSymbolTableItem>([&item](const PersistentSymbolTableRepo& repo) {
         uint index = repo.findIndex(item);
 
         if (index) {
@@ -441,7 +441,7 @@ void PersistentSymbolTablePrivate::declarations(const IndexedQualifiedIdentifier
     PersistentSymbolTableItem item;
     item.id = id;
 
-    LockedItemRepository::op<PersistentSymbolTableItem>(
+    LockedItemRepository::read<PersistentSymbolTableItem>(
         [&item, &countTarget, &declarationsTarget](const PersistentSymbolTableRepo& repo) {
             uint index = repo.findIndex(item);
 
@@ -517,7 +517,7 @@ void PersistentSymbolTable::dump(const QTextStream& out)
     QDebug qout = fromTextStream(out);
     DebugVisitor v(out);
 
-    LockedItemRepository::op<PersistentSymbolTableItem>([&](const PersistentSymbolTableRepo& repo) {
+    LockedItemRepository::read<PersistentSymbolTableItem>([&](const PersistentSymbolTableRepo& repo) {
         repo.visitAllItems(v);
 
         qout << "Statistics:" << endl;
