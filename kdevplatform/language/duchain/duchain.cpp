@@ -553,7 +553,7 @@ public:
             [infoIndex,
              request = EnvironmentInformationListRequest(info->url())](EnvironmentInformationListRepo& repo) mutable {
                 // Remove it from the environment information lists if it was there
-                uint index = repo.findIndex(request);
+                const uint index = repo.findIndex(request);
 
                 if (index) {
                     EnvironmentInformationListItem item(*repo.itemFromIndex(index));
@@ -569,7 +569,7 @@ public:
 
         LockedItemRepository::write<EnvironmentInformationItem>(
             [infoIndex, removed, removed2](EnvironmentInformationRepo& repo) {
-                uint index = repo.findIndex(infoIndex);
+                const uint index = repo.findIndex(infoIndex);
                 if (index) {
                     repo.deleteItem(index);
                 }
@@ -1193,7 +1193,7 @@ private:
 
         LockedItemRepository::write<EnvironmentInformationListItem>(
             [&, request = EnvironmentInformationListRequest(url)](EnvironmentInformationListRepo& repo) mutable {
-                uint index = repo.findIndex(request);
+                const uint index = repo.findIndex(request);
 
                 if (index) {
                     // We only handle adding items here, since we can never be sure whether everything is loaded
